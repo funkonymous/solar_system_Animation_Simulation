@@ -6,6 +6,11 @@ Graphics: OpenGL
 global illumination algorithm, shading algorithm, collision algorithm, 
 green screen for algorithm overlay
 
+apallaktikh.cpp is the main C++ function
+
+You can try apallaktikh.exe on the ~/apallaktikh folder in order
+to preview the project
+
 It includes windows libraries for the Star Wars sound
 
 keys :
