@@ -1,0 +1,117 @@
+#version 330 core
+
+// interpolated values from the vertex shaders (vertex_position_modelspace, 
+// vertex_normal_modelspace and vertex_UV coordinates)
+in vec3 vertex_position_modelspace;
+in vec3 vertex_normal_modelspace;
+in vec2 vertex_UV;
+
+
+// uniform variables (lightPosition_worldspace, V, M)
+uniform vec3 light_position_worldspace;
+uniform mat4 V;
+uniform mat4 M;
+uniform mat4 P;
+uniform float textureCase;
+uniform float Shadow;
+uniform vec3 center;
+uniform vec3 center2;
+uniform float drawSpace;
+
+
+// Task 5.3: define uniform variables for the texture coordinates
+// (diffuseColorSampler, specularColorSampler)
+uniform sampler2D diffuseColorSampler;
+uniform sampler2D specularColorSampler;
+uniform sampler2D diffuseSpaceship;
+uniform sampler2D specularSpaceship;
+
+// output data
+out vec4 fragment_color;
+
+void main()
+{	
+	// Phong //
+
+    // default color
+    fragment_color = vec4(1, 1, 1, 1);
+    //model light; specular (Ls), diffuse (Ld) and ambient (La) color
+	vec4 Ls = vec4(1,1,1,1);
+	vec4 Ld = vec4(1,1,1,1);
+	vec4 La = vec4(1,1,1,1);
+
+    //assign material properties from the texture maps
+    vec4 Ks = vec4(texture(specularColorSampler, vertex_UV).rgb,1.0);
+    vec4 Kd = vec4(texture(diffuseColorSampler, vertex_UV).rgb,1.0);
+    vec4 Ka = vec4(0.1, 0.1, 0.1, 1.0);
+    float Ns = 10;
+
+    //model ambient intensity (Ia)
+	vec4 Ia = Ka*La; 
+
+    //model diffuse intensity
+
+	// transform light position, vertex position and vertex normal 
+    // in camera space (N). Attention: vertex normal is a directional vector 
+    // (Homogeneous Transformations).
+	vec3 light_position_cameraspace = (V * vec4(light_position_worldspace,1)).xyz;
+	vec3 vertex_position_cameraspace = (V * M * vec4(vertex_position_modelspace,1)).xyz;
+    vec3 vertex_normal_cameraspace = (V * M * vec4(vertex_normal_modelspace,1)).xyz;
+	vec3 L = normalize(light_position_cameraspace-vertex_position_cameraspace);
+	vec3 N = normalize((V*M*vec4(vertex_normal_modelspace,0)).xyz);
+
+    
+    //calculate distance to light and normalized direction (L) in camera space 
+    //compute cos(theta)
+    // cosine of the angle between the normal and the light direction, 
+    // clamped above 0; use clamp(float, min, max)
+    //  - light is at the vertical of the triangle -> 1
+    //  - light is perpendicular to the triangle -> 0
+    //  - light is behind the triangle -> 0
+	float cos_theta = clamp(dot(L,N),0.0,1.0);
+    
+    // calculate the diffuse intensity and the new fragment color
+	fragment_color = Ld * Kd * cos_theta + Ia;
+	vec4 Id = Ld * Kd * cos_theta;
+    // model specular intensity
+    // compute reflexion direction (R) in camera space
+	vec3 R = normalize(-L+2*N*dot(L,N));
+    // compute surface to viewer direction (E) in camera space
+	vec3 E = normalize(-vertex_position_cameraspace);
+    // compute cos(alpha)
+	float cos_alpha = clamp(dot(E,R),0,1);
+    // cosine of the angle between the Eye vector and the Reflect vector,
+    // clamped to 0; use clamp(float, min, max)
+    //  - Looking into the reflection -> 1
+    //  - Looking elsewhere -> < 1
+
+    // calculate specular factor cos(a)^Ns
+    float specular_factor = pow(cos_alpha,Ns);
+    // calculate the specular intensity and the new fragment color
+	vec4 Is = Ls * Ks * specular_factor;
+
+	// model the light distance effect (add a light_power parameter).
+    vec3 dist = light_position_cameraspace - vertex_position_cameraspace;
+	float l_power = 10/(2.5+0.01*(pow(dist.x,2)+pow(dist.y,2)+pow(dist.z,2)));
+
+	// sun or background
+	if(textureCase>0){
+		Is = Ls * Ks;
+		Id = Ld * Kd;
+		Ia = vec4(0.2, 0.2, 0.2, 1.0);
+		l_power = 0.7;
+	};
+	if( (abs( dot (normalize( center ) , normalize( center2 + (M*vec4(vertex_position_modelspace,1)).xyz ) ) ) > Shadow) && (Shadow>0) ){
+		l_power = l_power/10;
+	};
+	
+	fragment_color = Is * l_power + Id * l_power + Ia;
+	if(drawSpace>0.0){
+		fragment_color += clamp(vec4(0.12,0.0,0.06,0.0) - vec4(sqrt((gl_FragCoord.x-512.0)*(gl_FragCoord.x-512.0)+1.5*(gl_FragCoord.y-334.0)*(gl_FragCoord.y-334.0))/1128.0),vec4(-1,-1,-1,0),vec4(0,0,0,0));
+	}
+	
+	if(((texture(specularSpaceship, vec2(gl_FragCoord.x / 1024.0,1.0- gl_FragCoord.y/768.0)).r>0.02)||(texture(specularSpaceship, vec2(gl_FragCoord.x / 1024.0,1.0- gl_FragCoord.y/768.0)).g>0.02)||(texture(specularSpaceship, vec2(gl_FragCoord.x / 1024.0,1.0- gl_FragCoord.y/768.0)).b>0.01))&&(drawSpace>0.0)){
+		fragment_color = vec4(texture(specularSpaceship, vec2(gl_FragCoord.x / 1024.0,1.0- gl_FragCoord.y/768.0)).rgb,1.0);
+	}
+	
+}
