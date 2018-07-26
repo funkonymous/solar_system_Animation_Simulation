@@ -4,7 +4,7 @@ A simulation and visual representation of the solar system
 Physics: Runge-Kutta 4
 Graphics: OpenGL
 global illumination algorithm, shading algorithm, collision algorithm, 
-green screen for algorithm overlay
+green screen algorithm for spaceship overlay
 
 apallaktikh.cpp is the main C++ function
 
